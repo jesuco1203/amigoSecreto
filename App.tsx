@@ -54,28 +54,27 @@ const App: React.FC = () => {
 
         const stateResp = await pb.collection('game_state').getList(1, 1, { sort: '-created' });
         if (stateResp.items.length) {
-          const s = stateResp.items[0];
+          const s: any = stateResp.items[0];
           setGameStateId(s.id);
           if (s.phase) setPhase(s.phase as AppPhase);
           if (s.matches) setMatches(s.matches as Match[]);
           if (s.currentRevealIndex !== undefined) setCurrentRevealIndex(s.currentRevealIndex);
-          if (s.settings) {
-            const st = s.settings as Partial<GlobalSettings>;
-            setSettings({
-              budget: st.budget ?? defaultSettings.budget,
-              exchangeDate: st.exchangeDate ?? defaultSettings.exchangeDate,
-              // Si ya existe un game_state, saltamos directo a registro/intereses
-              isConfigured: true,
-            });
-          } else {
-            setSettings((prev) => ({ ...prev, isConfigured: true }));
-          }
+
+          const mergedSettings: GlobalSettings = {
+            budget: s.budget ?? s.settings?.budget ?? defaultSettings.budget,
+            exchangeDate: s.exchangeDate ?? s.settings?.exchangeDate ?? defaultSettings.exchangeDate,
+            isConfigured: s.isConfigured ?? s.settings?.isConfigured ?? true, // si hay game_state asumimos configurado
+          };
+          setSettings(mergedSettings);
         } else {
           const created = await pb.collection('game_state').create({
             phase: AppPhase.SETUP,
             matches: [],
             currentRevealIndex: 0,
             settings: defaultSettings,
+            budget: defaultSettings.budget,
+            exchangeDate: defaultSettings.exchangeDate,
+            isConfigured: defaultSettings.isConfigured,
           });
           setGameStateId(created.id);
         }
@@ -106,15 +105,12 @@ const App: React.FC = () => {
         if (r.phase) setPhase(r.phase as AppPhase);
         if (r.matches) setMatches(r.matches as Match[]);
         if (r.currentRevealIndex !== undefined) setCurrentRevealIndex(r.currentRevealIndex);
-        if (r.settings) {
-          const st = r.settings as Partial<GlobalSettings>;
-          setSettings({
-            budget: st.budget ?? defaultSettings.budget,
-            exchangeDate: st.exchangeDate ?? defaultSettings.exchangeDate,
-            // Si ya existe game_state, asumimos configurado salvo que se marque explícitamente
-            isConfigured: st.isConfigured ?? true,
-          });
-        }
+        const mergedSettings: GlobalSettings = {
+          budget: r.budget ?? r.settings?.budget ?? defaultSettings.budget,
+          exchangeDate: r.exchangeDate ?? r.settings?.exchangeDate ?? defaultSettings.exchangeDate,
+          isConfigured: r.isConfigured ?? r.settings?.isConfigured ?? true,
+        };
+        setSettings(mergedSettings);
       });
     };
 
@@ -134,6 +130,9 @@ const App: React.FC = () => {
     if (!gameStateId) return;
     await pb.collection('game_state').update(gameStateId, {
       settings: { ...settings, isConfigured: true },
+      budget: settings.budget,
+      exchangeDate: settings.exchangeDate,
+      isConfigured: true,
       phase: AppPhase.SETUP,
     });
     setSettings((s) => ({ ...s, isConfigured: true }));
@@ -146,6 +145,9 @@ const App: React.FC = () => {
     if (!gameStateId) return;
     await pb.collection('game_state').update(gameStateId, {
       settings: { ...settings, isConfigured: false },
+      budget: settings.budget,
+      exchangeDate: settings.exchangeDate,
+      isConfigured: false,
       phase: AppPhase.SETUP,
     });
     setPhase(AppPhase.SETUP);
@@ -174,6 +176,9 @@ const App: React.FC = () => {
       phase: AppPhase.REVEAL,
       currentRevealIndex: 0,
       settings: { ...settings, isConfigured: true },
+      budget: settings.budget,
+      exchangeDate: settings.exchangeDate,
+      isConfigured: true,
     });
     setMatches(newMatches);
     setPhase(AppPhase.REVEAL);
@@ -208,6 +213,9 @@ const App: React.FC = () => {
       phase: AppPhase.SETUP,
       currentRevealIndex: 0,
       settings: defaultSettings,
+      budget: defaultSettings.budget,
+      exchangeDate: defaultSettings.exchangeDate,
+      isConfigured: defaultSettings.isConfigured,
     });
 
     setParticipants([]);
