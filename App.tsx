@@ -5,6 +5,7 @@ import { RevealCard } from './components/RevealCard';
 import { Button } from './components/Button';
 import { Input } from './components/Input';
 import { Snowfall } from './components/Snowfall';
+import Wishlist from './components/Wishlist';
 import { Gift, RefreshCw, Calendar, Users, Edit2, ArrowRight, Check, Loader2, X } from 'lucide-react';
 import { pb } from './services/pocketbase';
 
@@ -389,6 +390,11 @@ const App: React.FC = () => {
                 </div>
 
                 <ParticipantForm />
+
+                <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-sm">
+                  <h3 className="text-lg font-bold text-gray-700 mb-3">Wishlist de regalos</h3>
+                  <Wishlist />
+                </div>
 
                 <div className="h-28" />
               </>
