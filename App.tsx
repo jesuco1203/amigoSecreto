@@ -52,9 +52,9 @@ const App: React.FC = () => {
           }))
         );
 
-        const states = await pb.collection('game_state').getFullList({ sort: '-created', perPage: 1 });
-        if (states.length) {
-          const s = states[0];
+        const stateResp = await pb.collection('game_state').getList(1, 1, { sort: '-created' });
+        if (stateResp.items.length) {
+          const s = stateResp.items[0];
           setGameStateId(s.id);
           if (s.phase) setPhase(s.phase as AppPhase);
           if (s.matches) setMatches(s.matches as Match[]);
