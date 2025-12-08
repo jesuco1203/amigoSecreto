@@ -3,6 +3,7 @@ export interface Participant {
   name: string;
   interests: string;
   avatar?: string;
+  wishlistPhotos?: string[];
 }
 
 export interface Match {

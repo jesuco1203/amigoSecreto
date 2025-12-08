@@ -283,7 +283,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 mt-8 max-w-3xl relative z-10">
+      <main className="container mx-auto px-4 mt-8 max-w-3xl relative z-10 pb-32">
         {phase === AppPhase.SETUP && (
           <div className="space-y-8 animate-[fadeIn_0.5s_ease-out]">
             {!settings.isConfigured ? (
@@ -390,36 +390,7 @@ const App: React.FC = () => {
 
                 <ParticipantForm />
 
-                <div className="sticky bottom-4 z-40 bg-[#F1F0E8]/90 backdrop-blur-md p-4 rounded-2xl shadow-lg border border-gray-200">
-                  {isAdmin ? (
-                    <>
-                      <Button
-                        onClick={startDraw}
-                        fullWidth
-                        variant="primary"
-                        disabled={participants.length < 2}
-                        className="text-lg py-4 shadow-christmas-red/30 shadow-xl"
-                      >
-                        <Gift className="w-6 h-6" />
-                        ¡Realizar el Sorteo Mágico!
-                      </Button>
-                      {participants.length < 2 ? (
-                        <p className="text-center text-xs text-gray-500 mt-2">Agrega al menos 2 personas para comenzar.</p>
-                      ) : (
-                        <p className="text-center text-xs text-christmas-green font-bold mt-2 flex items-center justify-center gap-1">
-                          <Check className="w-3 h-3" /> {participants.length} participantes listos
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <div className="flex flex-col gap-2 text-center text-sm text-gray-600">
-                      <span>Esperando al administrador para realizar el sorteo.</span>
-                      <Button variant="secondary" onClick={handleAdminUnlock} fullWidth>
-                        Soy admin
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                <div className="h-28" />
               </>
             )}
           </div>
@@ -487,7 +458,38 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <div className="fixed bottom-0 left-0 w-full h-2 bg-gradient-to-r from-christmas-green via-emerald-600 to-christmas-green z-50" />
+      {phase === AppPhase.SETUP && (
+        <div className="fixed bottom-0 left-0 w-full z-50 bg-white/90 backdrop-blur border-t border-gray-200 p-4">
+          <div className="max-w-3xl mx-auto">
+            {isAdmin ? (
+              <Button
+                onClick={startDraw}
+                fullWidth
+                variant="primary"
+                disabled={participants.length < 2}
+                className="text-lg py-4 shadow-christmas-red/30 shadow-xl"
+              >
+                <Gift className="w-6 h-6" />
+                ¡Realizar el Sorteo Mágico!
+              </Button>
+            ) : (
+              <div className="flex flex-col gap-2 text-center text-sm text-gray-600">
+                <span>Esperando al administrador para realizar el sorteo.</span>
+                <Button variant="secondary" onClick={handleAdminUnlock} fullWidth>
+                  Soy admin
+                </Button>
+              </div>
+            )}
+            <p className="text-center text-xs text-gray-500 mt-2">
+              {participants.length < 2
+                ? 'Agrega al menos 2 personas para comenzar.'
+                : `${participants.length} participantes listos`}
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="fixed bottom-0 left-0 w-full h-2 bg-gradient-to-r from-christmas-green via-emerald-600 to-christmas-green z-40" />
     </div>
   );
 };
