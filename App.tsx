@@ -44,7 +44,7 @@ const App: React.FC = () => {
             id: p.id,
             name: p.name,
             interests: p.interests,
-            avatar: p.avatar ? pb.files.getUrl(p, p.avatar) : undefined,
+            avatar: p.avatar ? pb.files.getURL(p, p.avatar) : undefined,
           }))
         );
 
@@ -85,7 +85,7 @@ const App: React.FC = () => {
             id: p.id,
             name: p.name,
             interests: p.interests,
-            avatar: p.avatar ? pb.files.getUrl(p, p.avatar) : undefined,
+            avatar: p.avatar ? pb.files.getURL(p, p.avatar) : undefined,
           }))
         );
       });
