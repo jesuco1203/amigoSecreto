@@ -8,6 +8,9 @@ import { Snowfall } from './components/Snowfall';
 import { Gift, RefreshCw, Calendar, Users, Edit2, ArrowRight, Check, Loader2, X } from 'lucide-react';
 import { pb } from './services/pocketbase';
 
+const ADMIN_FLAG_KEY = 'secret_santa_admin';
+const ADMIN_CODE = import.meta.env.VITE_ADMIN_CODE || 'admin123';
+
 function shuffle<T>(array: T[]): T[] {
   const newArr = [...array];
   for (let i = newArr.length - 1; i > 0; i--) {
@@ -31,6 +34,7 @@ const App: React.FC = () => {
   const [settings, setSettings] = useState<GlobalSettings>(defaultSettings);
   const [gameStateId, setGameStateId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     let unsubParticipants: (() => void) | null = null;
@@ -60,8 +64,11 @@ const App: React.FC = () => {
             setSettings({
               budget: st.budget ?? defaultSettings.budget,
               exchangeDate: st.exchangeDate ?? defaultSettings.exchangeDate,
-              isConfigured: st.isConfigured ?? false,
+              // Si ya existe un game_state, saltamos directo a registro/intereses
+              isConfigured: true,
             });
+          } else {
+            setSettings((prev) => ({ ...prev, isConfigured: true }));
           }
         } else {
           const created = await pb.collection('game_state').create({
@@ -76,6 +83,10 @@ const App: React.FC = () => {
         console.error('Error loading data', err);
       } finally {
         setLoading(false);
+      }
+
+      if (localStorage.getItem(ADMIN_FLAG_KEY) === '1') {
+        setIsAdmin(true);
       }
 
       unsubParticipants = pb.collection('participants').subscribe('*', async () => {
@@ -100,7 +111,8 @@ const App: React.FC = () => {
           setSettings({
             budget: st.budget ?? defaultSettings.budget,
             exchangeDate: st.exchangeDate ?? defaultSettings.exchangeDate,
-            isConfigured: st.isConfigured ?? false,
+            // Si ya existe game_state, asumimos configurado salvo que se marque explícitamente
+            isConfigured: st.isConfigured ?? true,
           });
         }
       });
@@ -125,6 +137,8 @@ const App: React.FC = () => {
       phase: AppPhase.SETUP,
     });
     setSettings((s) => ({ ...s, isConfigured: true }));
+    localStorage.setItem(ADMIN_FLAG_KEY, '1');
+    setIsAdmin(true);
   };
 
   const editConfiguration = async () => {
@@ -139,6 +153,10 @@ const App: React.FC = () => {
   };
 
   const startDraw = async () => {
+    if (!isAdmin) {
+      alert('Solo el admin puede realizar el sorteo.');
+      return;
+    }
     if (participants.length < 2 || !gameStateId) {
       alert('Necesitas al menos 2 participantes para jugar.');
       return;
@@ -175,6 +193,10 @@ const App: React.FC = () => {
   };
 
   const resetGame = async () => {
+    if (!isAdmin) {
+      alert('Solo el admin puede reiniciar.');
+      return;
+    }
     if (!window.confirm('¿Seguro que quieres reiniciar? Se borrarán los sorteos y participantes.')) return;
     if (!gameStateId) return;
 
@@ -209,6 +231,17 @@ const App: React.FC = () => {
     return { santa, giftee };
   };
 
+  const handleAdminUnlock = () => {
+    const code = window.prompt('Ingresa la clave de administrador');
+    if (!code) return;
+    if (code === ADMIN_CODE) {
+      setIsAdmin(true);
+      localStorage.setItem(ADMIN_FLAG_KEY, '1');
+    } else {
+      alert('Clave incorrecta');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F1F0E8]">
@@ -229,7 +262,7 @@ const App: React.FC = () => {
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">Amigo Secreto Nuestra Familia</h1>
           </div>
           <div className="flex items-center gap-2">
-            {phase !== AppPhase.SETUP && (
+            {phase !== AppPhase.SETUP && isAdmin && (
               <button
                 onClick={resetGame}
                 className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-all"
@@ -350,22 +383,33 @@ const App: React.FC = () => {
                 <ParticipantForm />
 
                 <div className="sticky bottom-4 z-40 bg-[#F1F0E8]/90 backdrop-blur-md p-4 rounded-2xl shadow-lg border border-gray-200">
-                  <Button
-                    onClick={startDraw}
-                    fullWidth
-                    variant="primary"
-                    disabled={participants.length < 2}
-                    className="text-lg py-4 shadow-christmas-red/30 shadow-xl"
-                  >
-                    <Gift className="w-6 h-6" />
-                    ¡Realizar el Sorteo Mágico!
-                  </Button>
-                  {participants.length < 2 ? (
-                    <p className="text-center text-xs text-gray-500 mt-2">Agrega al menos 2 personas para comenzar.</p>
+                  {isAdmin ? (
+                    <>
+                      <Button
+                        onClick={startDraw}
+                        fullWidth
+                        variant="primary"
+                        disabled={participants.length < 2}
+                        className="text-lg py-4 shadow-christmas-red/30 shadow-xl"
+                      >
+                        <Gift className="w-6 h-6" />
+                        ¡Realizar el Sorteo Mágico!
+                      </Button>
+                      {participants.length < 2 ? (
+                        <p className="text-center text-xs text-gray-500 mt-2">Agrega al menos 2 personas para comenzar.</p>
+                      ) : (
+                        <p className="text-center text-xs text-christmas-green font-bold mt-2 flex items-center justify-center gap-1">
+                          <Check className="w-3 h-3" /> {participants.length} participantes listos
+                        </p>
+                      )}
+                    </>
                   ) : (
-                    <p className="text-center text-xs text-christmas-green font-bold mt-2 flex items-center justify-center gap-1">
-                      <Check className="w-3 h-3" /> {participants.length} participantes listos
-                    </p>
+                    <div className="flex flex-col gap-2 text-center text-sm text-gray-600">
+                      <span>Esperando al administrador para realizar el sorteo.</span>
+                      <Button variant="secondary" onClick={handleAdminUnlock} fullWidth>
+                        Soy admin
+                      </Button>
+                    </div>
                   )}
                 </div>
               </>
