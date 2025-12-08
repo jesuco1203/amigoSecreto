@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
-      base: '/amigo-secreto/', // Ajusta al nombre de tu repo en GitHub Pages
+      base: '/amigoSecreto/', // Ajusta al nombre exacto del repo en GitHub Pages
       server: {
         port: 3000,
         host: '0.0.0.0',
