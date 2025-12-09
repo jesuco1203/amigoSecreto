@@ -36,10 +36,22 @@ const App: React.FC = () => {
   const [gameStateId, setGameStateId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [showAdminActions, setShowAdminActions] = useState(false);
+  const [modalParticipant, setModalParticipant] = useState<Participant | null>(null);
+  const [urlParticipantId, setUrlParticipantId] = useState<string | null>(null);
+  const [urlAccessCode, setUrlAccessCode] = useState<string | null>(null);
 
   useEffect(() => {
     let unsubParticipants: (() => void) | null = null;
     let unsubGame: (() => void) | null = null;
+
+    const params = new URLSearchParams(window.location.search);
+    const pid = params.get('participant');
+    const code = params.get('code');
+    if (pid && code) {
+      setUrlParticipantId(pid);
+      setUrlAccessCode(code);
+    }
 
     const load = async () => {
       try {
@@ -50,6 +62,8 @@ const App: React.FC = () => {
             name: p.name,
             interests: p.interests,
             avatar: p.avatar ? pb.files.getURL(p, p.avatar) : undefined,
+            access_code: p.access_code,
+            wishlistPhotos: p.wishlistPhotos,
           }))
         );
 
@@ -97,6 +111,8 @@ const App: React.FC = () => {
             name: p.name,
             interests: p.interests,
             avatar: p.avatar ? pb.files.getURL(p, p.avatar) : undefined,
+            access_code: p.access_code,
+            wishlistPhotos: p.wishlistPhotos,
           }))
         );
       });
@@ -240,6 +256,28 @@ const App: React.FC = () => {
     return { santa, giftee };
   };
 
+  const authorizedParticipant =
+    participants.find(
+      (p) => urlParticipantId && urlAccessCode && p.id === urlParticipantId && p.access_code === urlAccessCode
+    ) || null;
+  const canEditWishlist = Boolean(authorizedParticipant);
+
+  const buildMagicLink = (p: Participant) => {
+    if (!p.access_code) return '';
+    const baseUrl = new URL(import.meta.env.BASE_URL || '/', window.location.origin).toString();
+    return `${baseUrl}?participant=${p.id}&code=${p.access_code}`;
+  };
+
+  const copyMagicLink = async (link: string) => {
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      alert('Link copiado al portapapeles');
+    } catch (e) {
+      alert('No se pudo copiar. Copia manualmente el enlace.');
+    }
+  };
+
   const handleAdminUnlock = () => {
     const code = window.prompt('Ingresa la clave de administrador');
     if (!code) return;
@@ -363,7 +401,8 @@ const App: React.FC = () => {
                       {participants.map((p) => (
                         <div
                           key={p.id}
-                          className="group bg-white p-2 rounded-lg border border-gray-100 flex items-center gap-2 relative"
+                          className="group bg-white p-2 rounded-lg border border-gray-100 flex items-center gap-2 relative cursor-pointer hover:shadow-md transition-shadow"
+                          onClick={() => setModalParticipant(p)}
                         >
                           <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 border">
                             <img
@@ -377,12 +416,27 @@ const App: React.FC = () => {
                             {p.interests && <p className="text-[11px] text-gray-500 truncate">{p.interests}</p>}
                           </div>
                           <button
-                            onClick={() => removeParticipant(p.id)}
+                            onClick={(e) => { e.stopPropagation(); removeParticipant(p.id); }}
                             className="absolute -top-2 -right-2 bg-red-100 text-red-500 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                             title="Eliminar"
                           >
                             <X className="w-3 h-3" />
                           </button>
+                          {p.access_code && (
+                            <div className="absolute left-2 -bottom-7 text-[10px] text-gray-500 truncate w-[calc(100%-1rem)] flex items-center gap-1">
+                              <span className="truncate">Link mágico: {buildMagicLink(p)}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  copyMagicLink(buildMagicLink(p));
+                                }}
+                                className="text-christmas-red font-bold"
+                              >
+                                Copiar
+                              </button>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -393,7 +447,17 @@ const App: React.FC = () => {
 
                 <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-sm">
                   <h3 className="text-lg font-bold text-gray-700 mb-3">Wishlist de regalos</h3>
-                  <Wishlist />
+                  {canEditWishlist ? (
+                  <Wishlist canEdit={canEditWishlist} participantName={authorizedParticipant?.name} />
+                  ) : urlParticipantId ? (
+                    <div className="text-sm text-gray-600">
+                      Este enlace no tiene permisos para editar la wishlist. Verifica tu link mágico.
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-600">
+                      Para editar tu wishlist, usa tu enlace personal de participante.
+                    </div>
+                  )}
                 </div>
 
                 <div className="h-28" />
@@ -465,37 +529,107 @@ const App: React.FC = () => {
       </main>
 
       {phase === AppPhase.SETUP && (
-        <div className="fixed bottom-0 left-0 w-full z-50 bg-white/90 backdrop-blur border-t border-gray-200 p-4">
-          <div className="max-w-3xl mx-auto">
-            {isAdmin ? (
-              <Button
-                onClick={startDraw}
-                fullWidth
-                variant="primary"
-                disabled={participants.length < 2}
-                className="text-lg py-4 shadow-christmas-red/30 shadow-xl"
-              >
-                <Gift className="w-6 h-6" />
-                ¡Realizar el Sorteo Mágico!
-              </Button>
-            ) : (
-              <div className="flex flex-col gap-2 text-center text-sm text-gray-600">
-                <span>Esperando al administrador para realizar el sorteo.</span>
-                <Button variant="secondary" onClick={handleAdminUnlock} fullWidth>
-                  Soy admin
+        <>
+          <button
+            className="fixed top-4 right-4 z-50 px-3 py-2 bg-christmas-red text-white text-sm font-semibold rounded-full shadow-lg hover:bg-red-700 transition-colors"
+            onClick={() => setShowAdminActions((v) => !v)}
+            aria-label="Mostrar opciones de administrador"
+          >
+            ☰ Opciones
+          </button>
+
+          <div
+            className={`fixed bottom-0 left-0 w-full z-50 bg-white/90 backdrop-blur border-t border-gray-200 p-4 ${
+              showAdminActions ? '' : 'hidden'
+            }`}
+          >
+            <div className="max-w-3xl mx-auto">
+              {isAdmin ? (
+                <Button
+                  onClick={startDraw}
+                  fullWidth
+                  variant="primary"
+                  disabled={participants.length < 2}
+                  className="text-lg py-4 shadow-christmas-red/30 shadow-xl"
+                >
+                  <Gift className="w-6 h-6" />
+                  Realizar Sorteo (Administrador)
                 </Button>
-              </div>
-            )}
-            <p className="text-center text-xs text-gray-500 mt-2">
-              {participants.length < 2
-                ? 'Agrega al menos 2 personas para comenzar.'
-                : `${participants.length} participantes listos`}
-            </p>
+              ) : (
+                <div className="flex flex-col gap-3 text-sm text-gray-600">
+                  <span>Opciones de administrador</span>
+                  <Button variant="primary" onClick={handleAdminUnlock} fullWidth>
+                    Soy admin
+                  </Button>
+                  <p className="text-xs text-gray-500 text-center">
+                    Necesitas la clave de administrador para realizar el sorteo.
+                  </p>
+                </div>
+              )}
+              <p className="text-center text-xs text-gray-500 mt-2">
+                {participants.length < 2
+                  ? 'Agrega al menos 2 personas para comenzar.'
+                  : `${participants.length} participantes listos`}
+              </p>
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       <div className="fixed bottom-0 left-0 w-full h-2 bg-gradient-to-r from-christmas-green via-emerald-600 to-christmas-green z-40" />
+
+      {modalParticipant && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 relative">
+            <button
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+              onClick={() => setModalParticipant(null)}
+              aria-label="Cerrar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-14 h-14 rounded-full overflow-hidden bg-gray-100 border">
+                <img
+                  src={
+                    modalParticipant.avatar ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(modalParticipant.name)}`
+                  }
+                  alt={modalParticipant.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-800">{modalParticipant.name}</h3>
+                {modalParticipant.interests && (
+                  <p className="text-sm text-gray-600 flex items-center gap-2">
+                    <Gift className="w-4 h-4" />
+                    {modalParticipant.interests}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="font-semibold text-gray-800">Wishlist</h4>
+              {modalParticipant.wishlistPhotos && modalParticipant.wishlistPhotos.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {modalParticipant.wishlistPhotos.slice(0, 6).map((url, idx) => (
+                    <img
+                      key={idx}
+                      src={url}
+                      alt={`wishlist-${idx}`}
+                      className="w-full h-20 object-cover rounded-lg border"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">Este participante no ha agregado fotos a su wishlist.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

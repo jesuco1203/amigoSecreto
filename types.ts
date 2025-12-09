@@ -3,6 +3,7 @@ export interface Participant {
   name: string;
   interests: string;
   avatar?: string;
+  access_code?: string;
   wishlistPhotos?: string[];
 }
 

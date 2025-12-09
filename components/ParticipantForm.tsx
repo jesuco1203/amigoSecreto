@@ -10,11 +10,8 @@ const ParticipantForm: React.FC = () => {
   const [interests, setInterests] = useState('');
   const [preview, setPreview] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [wishlistFiles, setWishlistFiles] = useState<File[]>([]);
-  const [wishlistPreviews, setWishlistPreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const wishlistInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -23,12 +20,11 @@ const ParticipantForm: React.FC = () => {
     setPreview(URL.createObjectURL(f));
   };
 
-  const handleWishlistChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-    const combined = [...wishlistFiles, ...files].slice(0, 3);
-    setWishlistFiles(combined);
-    setWishlistPreviews(combined.map((f) => URL.createObjectURL(f)));
+  const generateAccessCode = () => {
+    if (crypto?.randomUUID) {
+      return crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+    }
+    return Math.random().toString(36).substring(2, 14);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -40,6 +36,7 @@ const ParticipantForm: React.FC = () => {
       const formData = new FormData();
       formData.append('name', name);
       formData.append('interests', interests);
+      formData.append('access_code', generateAccessCode());
 
       if (file) {
         const compressed = await compressImage(file);
@@ -47,24 +44,13 @@ const ParticipantForm: React.FC = () => {
         formData.append('avatar', compressed, newName);
       }
 
-       if (wishlistFiles.length) {
-         for (const wf of wishlistFiles.slice(0, 3)) {
-           const compressed = await compressImage(wf);
-           const newName = wf.name.replace(/\.[^/.]+$/, '') + '.webp';
-           formData.append('wishlistPhotos', compressed, newName);
-         }
-       }
-
       await pb.collection('participants').create(formData);
 
       setName('');
       setInterests('');
       setFile(null);
       setPreview(null);
-      setWishlistFiles([]);
-      setWishlistPreviews([]);
       if (fileInputRef.current) fileInputRef.current.value = '';
-      if (wishlistInputRef.current) wishlistInputRef.current.value = '';
     } catch (err) {
       console.error(err);
       alert('Error al conectar con el servidor.');
@@ -134,41 +120,6 @@ const ParticipantForm: React.FC = () => {
               label="Intereses"
               disabled={isUploading}
             />
-
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-gray-700">Fotos de referencia (máx 3)</p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => !isUploading && wishlistInputRef.current?.click()}
-                  className="px-3 py-2 bg-gray-100 border border-gray-200 rounded-lg text-xs font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50"
-                  disabled={isUploading}
-                >
-                  Subir fotos
-                </button>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  ref={wishlistInputRef}
-                  onChange={handleWishlistChange}
-                  disabled={isUploading}
-                />
-              </div>
-              {wishlistPreviews.length > 0 && (
-                <div className="flex gap-2 flex-wrap">
-                  {wishlistPreviews.map((src, idx) => (
-                    <img
-                      key={idx}
-                      src={src}
-                      alt={`wishlist-${idx}`}
-                      className="w-16 h-16 rounded-lg object-cover border"
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
 
             <Button type="submit" fullWidth disabled={!name.trim() || isUploading}>
               {isUploading ? 'Subiendo...' : 'Agregar a la Lista'}
